@@ -10,11 +10,11 @@ mongodb.connect("mongodb+srv://todoAppUser:todoappjelszo@cluster0-wtowc.mongodb.
   function sendDataToMongo(data) {
     
     client.db().collection("views").insertOne(data)
-      console.log("Insert done, Ready")
+    console.log("Insert done, Ready")
 
   }
 
-  var j = schedule.scheduleJob('1 * * * *', function(){
+  var j = schedule.scheduleJob('*/5 * * * * *', function(){
 
     axios.get('https://www.googleapis.com/youtube/v3/videos', {
         params: {
