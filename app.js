@@ -14,7 +14,7 @@ mongodb.connect("mongodb+srv://todoAppUser:todoappjelszo@cluster0-wtowc.mongodb.
 
   }
 
-  var j = schedule.scheduleJob('*/1 * * * *', function(){
+  var j = schedule.scheduleJob('*/10 * * * * *', function(){
 
     axios.get('https://www.googleapis.com/youtube/v3/videos', {
         params: {
