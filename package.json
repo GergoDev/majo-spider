@@ -1,0 +1,16 @@
+{
+  "name": "ytviewsapp",
+  "version": "1.0.0",
+  "description": "this app is collecting views data from youtube",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Gergo Ferenczi",
+  "license": "ISC",
+  "dependencies": {
+    "axios": "^0.19.2",
+    "mongodb": "^3.5.2",
+    "node-schedule": "^1.3.2"
+  }
+}
