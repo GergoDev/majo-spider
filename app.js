@@ -1,22 +1,13 @@
 const axios = require('axios')
 const mongodb = require('mongodb')
-var schedule = require('node-schedule');
+const schedule = require('node-schedule')
+const dotenv = require('dotenv')
+dotenv.config()
 
 const videoId = "DixKZZBsmso"
 const youtubeApiKey = "AIzaSyB5VDNjUt-kuuShxiYbnzuV2wsbmhEscu4"
 
-mongodb.connect("mongodb+srv://todoAppUser:todoappjelszo@cluster0-wtowc.mongodb.net/YouTube?retryWrites=true&w=majority", {useNewUrlParser: true, useUnifiedTopology: true}, function(err, client) {
-
-  function sendDataToMongo(data) {
-    
-    client.db().collection("views").insertOne(data)
-    console.log("Insert done, Ready")
-
-  }
-
-  var j = schedule.scheduleJob('*/5 * * * * *', function(){
-
-    axios.get('https://www.googleapis.com/youtube/v3/videos', {
+/* axios.get('https://www.googleapis.com/youtube/v3/videos', {
         params: {
           part: "statistics",
           id: videoId,
@@ -35,8 +26,28 @@ mongodb.connect("mongodb+srv://todoAppUser:todoappjelszo@cluster0-wtowc.mongodb.
       })
       .catch(function (error) {
         console.log(error);
-      })
+      }) */
 
-  })
+mongodb.connect(process.env.CONNECTIONSTRING, {useNewUrlParser: true, useUnifiedTopology: true}, function(err, client) {
+
+  function sendDataToMongo(data) {
+    
+    client.db().collection("views").insertOne(data)
+    console.log("Insert done, Ready")
+
+  }
+
+  let dataToInsert = {
+    VideoID: videoId,
+    Time: new Date()
+  }  
+  
+  sendDataToMongo(dataToInsert)
+
+  // var j = schedule.scheduleJob('*/5 * * * * *', function(){
+
+    
+
+  // }) 
 
 })

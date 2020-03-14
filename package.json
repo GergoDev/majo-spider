@@ -1,5 +1,5 @@
 {
-  "name": "ytviewsapp",
+  "name": "majo-spider",
   "version": "1.0.0",
   "description": "this app is collecting views data from youtube",
   "main": "index.js",
