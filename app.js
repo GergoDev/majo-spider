@@ -137,7 +137,7 @@ async function saveVideosStats() {
 
 }
 
-var j = schedule.scheduleJob('*/10 * * * *', async function(){
+var j = schedule.scheduleJob('*/10 * * * * *', async function(){
 
     await addingNewChannelVideos()
 
