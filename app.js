@@ -1,19 +1,21 @@
+const schedule = require('node-schedule')
 const axios = require('axios')
 const channels = require('./db').db().collection('channels')
 const videos = require('./db').db().collection('videos')
+const videoDataFrames = require('./db').db().collection('videoDataFrames')
 const dotenv = require('dotenv')
 dotenv.config()
 
-function videoStatRequest(videoId) {
+function videosStatRequest(videoIds) {
   return new Promise((resolve, reject) => {
     axios.get('https://www.googleapis.com/youtube/v3/videos', {
         params: {
-          part: "statistics",
-          id: videoId,
+          part: "snippet,statistics",
+          id: videoIds,
           key: process.env.YOUTUBEAPIKEY
         }
     }).then(function(response) {
-        resolve(response.data.items[0].statistics)
+        resolve(response.data)
     }).catch(function (error) {
         reject(error)
     })  
@@ -49,7 +51,7 @@ async function addingChannelVideos(channelId, fromDate, channelName) {
           videoId: video.contentDetails.upload.videoId,
           channelId: video.snippet.channelId,
           videoName: video.snippet.title,
-          coverPic: video.snippet.thumbnails.maxres.url,
+          coverPic: video.snippet.thumbnails.high.url,
           category: "N/A",
           status: "on",
           releaseDate: new Date(video.snippet.publishedAt),
@@ -60,41 +62,85 @@ async function addingChannelVideos(channelId, fromDate, channelName) {
 
   if(videosToDatabase.length != 0) {
     let insertResult = await videos.insertMany(videosToDatabase)
-    console.log(channelName, insertResult.insertedCount, "videos added")
+    console.log("  ", channelName, insertResult.insertedCount, "videos added")
     insertResult.ops.forEach(addedVideo => console.log("   ", addedVideo.videoName))
   }
 
 }
 
-// addingChannels(channelsToAdd).then(channelsAdded => {
+async function addingNewChannelVideos() {
 
-//   if (channelsAdded) {
-//     let currentDate = new Date()
-//     let twoMonthsBefore = currentDate.getTime() - (60 * 24 * 60 * 60 * 1000)
-//     let videosFrom = new Date(twoMonthsBefore)
+  // Request all the channels with "status: on" with last video
+  let channelsWithLastVideo = await channels.aggregate([
+    {$match: {status: 'on'}},
+    {$lookup: {from: "videos", localField: "channelId", foreignField: "channelId", as: "channelVideo"}},
+    {$unwind: {path: "$channelVideo", preserveNullAndEmptyArrays: true}},
+    {$sort: {"channelVideo.releaseDate": -1}},
+    {$group: {"_id": "$_id", "channelId": {$first: "$channelId"}, "channelName": {$first: "$channelName"}, "channelAddedDate": {$first: "$addedDate"}, "lastVideo": {$first: "$channelVideo"}}}
+  ]).toArray()
 
-//     let addingVideosPromises = channelsAdded.map(channel => addingChannelVideos(channel.channelId, videosFrom, channel.channelName))
+  console.log("ADDING NEW CHANNEL VIDEOS TASK RAN", new Date())
+  console.log("// Checking for new videos on", channelsWithLastVideo.length, "channels")
 
-//     Promise.all(addingVideosPromises)
-//   }
+  let channelsWithLastVideoPromises = channelsWithLastVideo.map( channel => {
+    if(channel.lastVideo) {
+      return addingChannelVideos(channel.channelId, channel.lastVideo.releaseDate, channel.channelName)
+    } else {
+      return addingChannelVideos(channel.channelId, channel.channelAddedDate, channel.channelName)
+    }
+  })
 
-// })
+  await Promise.all(channelsWithLastVideoPromises)
 
-var j = schedule.scheduleJob('*/5 * * * * *', async function(){
+}
 
-console.log("Task running")
+async function saveVideosStats() {
 
-  // const {viewCount, likeCount, dislikeCount, commentCount} = await videoStatRequest(videoId)
+  let videosWithOnStatus = await videos.find( {status: "on"} ).toArray()
 
-  // videoDataFrames.insertOne({
-  //   videoId, 
-  //   channelId: "channelId", 
-  //   dataFrameDate: new Date(), 
-  //   viewCount, 
-  //   likeCount, 
-  //   dislikeCount, 
-  //   commentCount
-  // }, () => console.log("Insert done, Ready"))
+  let videosWithOnStatusPromises = []
+
+  for(let x = 1; x <= Math.ceil(videosWithOnStatus.length/50); x++) {
+
+    let sliceTo = x * 50
+    let videoIds = videosWithOnStatus.map(v => v.videoId).slice(sliceTo-50, sliceTo).join(",")
+    videosWithOnStatusPromises.push(videosStatRequest(videoIds))
+
+  }
+
+  let videoStatistics = await Promise.all(videosWithOnStatusPromises)
+  
+  let videoStatisticsRefactored = videoStatistics.map( statPack => statPack.items.map( video => {
+    return(
+      {
+        videoId: video.id, 
+        channelId: video.snippet.channelId, 
+        viewCount: video.statistics.viewCount, 
+        likeCount: video.statistics.likeCount, 
+        dislikeCount: video.statistics.dislikeCount, 
+        commentCount: video.statistics.commentCount, 
+        dataFrameDate: new Date()
+      }
+    )
+  }))
+
+  let videoStatisticsToDatabase = []
+  videoStatisticsRefactored.forEach( statPack => videoStatisticsToDatabase = videoStatisticsToDatabase.concat(statPack))
+  
+  if(videoStatisticsToDatabase.length != 0) {
+
+    let insertResult = await videoDataFrames.insertMany(videoStatisticsToDatabase)
+    console.log("SAVE VIDEOS STATS TASK RAN", new Date())
+    console.log("//", insertResult.insertedCount, "Data Frame added to the database.")
+
+  }
+
+}
+
+var j = schedule.scheduleJob('*/10 * * * *', async function(){
+
+    await addingNewChannelVideos()
+
+    await saveVideosStats()
 
 })
-console.log(j)
