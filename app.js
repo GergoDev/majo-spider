@@ -115,10 +115,10 @@ async function saveVideosStats() {
       {
         videoId: video.id, 
         channelId: video.snippet.channelId, 
-        viewCount: video.statistics.viewCount, 
-        likeCount: video.statistics.likeCount, 
-        dislikeCount: video.statistics.dislikeCount, 
-        commentCount: video.statistics.commentCount, 
+        viewCount: Number(video.statistics.viewCount), 
+        likeCount: Number(video.statistics.likeCount), 
+        dislikeCount: Number(video.statistics.dislikeCount), 
+        commentCount: Number(video.statistics.commentCount), 
         dataFrameDate: new Date()
       }
     )
@@ -137,10 +137,12 @@ async function saveVideosStats() {
 
 }
 
-var j = schedule.scheduleJob('*/10 * * * * *', async function(){
+// var j = schedule.scheduleJob('*/10 * * * * *', async function(){
 
-    await addingNewChannelVideos()
+//     await addingNewChannelVideos()
 
-    await saveVideosStats()
+//     await saveVideosStats()
 
-})
+// })
+
+addingNewChannelVideos().then(_ => saveVideosStats())
