@@ -3,14 +3,33 @@ const axios = require('axios')
 const channels = require('./db').db().collection('channels')
 const videos = require('./db').db().collection('videos')
 const videoDataFrames = require('./db').db().collection('videoDataFrames')
+const channelDataFrames = require('./db').db().collection('channelDataFrames')
 const dotenv = require('dotenv')
 dotenv.config()
+
+function channelsStatRequest(channelIds) {
+  return new Promise((resolve, reject) => {
+    axios.get('https://www.googleapis.com/youtube/v3/channels', {
+        params: {
+          part: "statistics",
+          id: channelIds,
+          maxResults: 50,
+          key: process.env.YOUTUBEAPIKEY
+        }
+    }).then(function(response) {
+        resolve(response.data)
+    }).catch(function (error) {
+        reject(error)
+    })  
+  })
+}
 
 function videosStatRequest(videoIds) {
   return new Promise((resolve, reject) => {
     axios.get('https://www.googleapis.com/youtube/v3/videos', {
         params: {
           part: "snippet,statistics",
+          maxResults: 50,
           id: videoIds,
           key: process.env.YOUTUBEAPIKEY
         }
@@ -137,12 +156,57 @@ async function saveVideosStats() {
 
 }
 
-// var j = schedule.scheduleJob('*/10 * * * * *', async function(){
+async function saveChannelStats() {
 
-//     await addingNewChannelVideos()
+  let channelsWithOnStatus = await channels.find( {status: "on"} ).toArray()
 
-//     await saveVideosStats()
+  let channelsWithOnStatusPromises = []
 
-// })
+  for(let x = 1; x <= Math.ceil(channelsWithOnStatus.length/50); x++) {
 
-addingNewChannelVideos().then(_ => saveVideosStats())
+    let sliceTo = x * 50
+    let channelIds = channelsWithOnStatus.map(c => c.channelId).slice(sliceTo-50, sliceTo).join(",")
+    channelsWithOnStatusPromises.push(channelsStatRequest(channelIds))
+
+  }
+
+  let channelStatistics = await Promise.all(channelsWithOnStatusPromises)
+  
+  let channelStatisticsRefactored = channelStatistics.map( statPack => statPack.items.map( channel => {
+    return(
+      {
+        channelId: channel.id, 
+        subscribersCount: Number(channel.statistics.subscriberCount), 
+        viewCount: Number(channel.statistics.viewCount), 
+        videoCount: Number(channel.statistics.videoCount), 
+        dataFrameDate: new Date()
+      }
+    )
+  }))
+
+  let channelStatisticsToDatabase = []
+  channelStatisticsRefactored.forEach( statPack => channelStatisticsToDatabase = channelStatisticsToDatabase.concat(statPack))
+
+  if(channelStatisticsToDatabase.length != 0) {
+
+    let insertResult = await channelDataFrames.insertMany(channelStatisticsToDatabase)
+    console.log("SAVE CHANNEL STATS TASK RAN", new Date())
+    console.log("//", insertResult.insertedCount, "Data Frame added to the database.")
+
+  }
+
+}
+
+var j = schedule.scheduleJob('*/10 * * * * *', async function(){
+
+    await addingNewChannelVideos()
+
+    await saveVideosStats()
+
+    await saveChannelStats()
+
+    console.log("")
+
+})
+
+//addingNewChannelVideos().then( _ => saveVideosStats() ).then( _ => saveChannelStats())
