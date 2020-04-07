@@ -243,7 +243,10 @@ async function saveTrending(regionCode) {
   
 }
 
-var j = schedule.scheduleJob('*/10 * * * * *', async function(){
+var j = schedule.scheduleJob('0,30 * * * *', async function(){
+
+  let cd = new Date()  
+  if(cd.getHours()+":"+cd.getMinutes() == "0:0") {
 
     await addingNewChannelVideos()
 
@@ -251,9 +254,11 @@ var j = schedule.scheduleJob('*/10 * * * * *', async function(){
 
     await saveChannelStats()
 
-    await saveTrending("HU")
+  }
 
-    console.log("")
+  await saveTrending("HU")
+
+  console.log("")
 
 })
 
