@@ -4,6 +4,7 @@
   "description": "this app is collecting views data from youtube",
   "main": "index.js",
   "scripts": {
+    "start": "node db",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "Gergo Ferenczi",

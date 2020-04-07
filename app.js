@@ -4,8 +4,27 @@ const channels = require('./db').db().collection('channels')
 const videos = require('./db').db().collection('videos')
 const videoDataFrames = require('./db').db().collection('videoDataFrames')
 const channelDataFrames = require('./db').db().collection('channelDataFrames')
+const trendingDataFrames = require('./db').db().collection('trendingDataFrames')
 const dotenv = require('dotenv')
 dotenv.config()
+
+function trendingRequest(regionCode) {
+  return new Promise((resolve, reject) => {
+    axios.get('https://www.googleapis.com/youtube/v3/videos', {
+        params: {
+          part: "snippet",
+          chart: "mostPopular",
+          maxResults: 30,
+          regionCode,
+          key: process.env.YOUTUBEAPIKEY
+        }
+    }).then(function(response) {
+        resolve(response.data)
+    }).catch(function (error) {
+        reject(error)
+    })  
+  })
+}
 
 function channelsStatRequest(channelIds) {
   return new Promise((resolve, reject) => {
@@ -197,6 +216,33 @@ async function saveChannelStats() {
 
 }
 
+async function saveTrending(regionCode) {
+
+  let trendingChart = await trendingRequest(regionCode)
+
+  let refactoredTrendingChart = trendingChart.items.map( video => {
+    return (
+      {
+        channelId: video.snippet.channelId,
+        videoId: video.id,
+        videoName: video.snippet.title,
+        coverPic: video.snippet.thumbnails.high.url
+      }
+    )
+  })
+
+  let trendingChartToDB = { rankedVideos: [...refactoredTrendingChart], dataFrameDate: new Date() }
+
+  if(trendingChartToDB.rankedVideos.length) {
+    let insertResult = await trendingDataFrames.insertOne(trendingChartToDB)
+    
+    console.log("SAVE TRENDING TASK RAN", new Date())
+    if(insertResult.insertedCount)
+      console.log("//", insertResult.insertedCount, "Data Frame added to the database.")
+  }
+  
+}
+
 var j = schedule.scheduleJob('*/10 * * * * *', async function(){
 
     await addingNewChannelVideos()
@@ -204,6 +250,8 @@ var j = schedule.scheduleJob('*/10 * * * * *', async function(){
     await saveVideosStats()
 
     await saveChannelStats()
+
+    await saveTrending("HU")
 
     console.log("")
 
