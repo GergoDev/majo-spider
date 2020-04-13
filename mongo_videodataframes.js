@@ -72,16 +72,59 @@ console.time("Timer")
 
 // })
 
-mongodb.connect(
-    process.env.CONNECTIONSTRING,
-    { useNewUrlParser: true, useUnifiedTopology: true },
-    function (err, client) {
+// mongodb.connect(
+//     process.env.CONNECTIONSTRING,
+//     { useNewUrlParser: true, useUnifiedTopology: true },
+//     function (err, client) {
 
-        client.db().collection("videoDataFrames").updateMany(
-            { dataFrameDate: { $gt: new Date("2020-04-06T23:00:00.000Z") } },
-            { $set: { dataFrameDate: new Date("2020-04-06T23:00:00.000Z") } }
-        ).then(() => {
-            console.log("done")
-        })
+//         client.db().collection("videoDataFrames").updateMany(
+//             { dataFrameDate: { $gt: new Date("2020-04-06T23:00:00.000Z") } },
+//             { $set: { dataFrameDate: new Date("2020-04-06T23:00:00.000Z") } }
+//         ).then(() => {
+//             console.log("done")
+//         })
+
+//     })
+
+mongodb.connect(process.env.CONNECTIONSTRING, {useNewUrlParser: true, useUnifiedTopology: true}, function(err, client) {
+
+    client.db().collection("channels").aggregate([
+        { $match: 
+            {
+                $and: [
+                    { status: 'on' },
+                    { addedDate: { $lt: new Date("2020-04-06T00:00:00.000+0100") }}
+                ]
+            }
+        },
+        { $lookup: 
+            {
+                from: "channelDataFrames",
+                let: { channelId: "$channelId"},
+                pipeline: [
+                     { $match:
+                         { $expr:
+                             { $and:
+                                 [
+                                    { $eq: ["$channelId", "$$channelId"] },
+                                    { $gte: ["$dataFrameDate", new Date("2020-04-06T00:00:00.000+0100") ] },
+                                    { $lte: ["$dataFrameDate", new Date("2020-04-12T00:01:00.000+0100") ] }
+                                 ]
+                             }
+                         }
+                     },
+                     { $sort: { dataFrameDate: 1 } }
+                 ],
+                 as: "dataFrames"
+            }
+        },
+        {$limit: 3}
+    ]).toArray((err, res) => {
+        res.forEach( res => console.log(res))   
+        console.log("ERROR", err)   
+        client.close()
+        console.timeEnd("Timer") 
 
     })
+
+})

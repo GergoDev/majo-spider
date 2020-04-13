@@ -245,8 +245,9 @@ async function saveTrending(regionCode) {
 
 var j = schedule.scheduleJob('0,30 * * * *', async function(){
 
+  let runningTimes = ["0:0", "8:0", "16:0"]
   let cd = new Date()  
-  if(cd.getHours()+":"+cd.getMinutes() == "0:0") {
+  if( runningTimes.find( time => time == cd.getHours()+":"+cd.getMinutes() ) ) {
 
     await addingNewChannelVideos()
 
